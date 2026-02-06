@@ -13,7 +13,8 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Database setup
-const db = new sqlite3.Database('./data/nexus2.db');
+const DATABASE_PATH = process.env.DATABASE_PATH || './data/nexus2.db';
+const db = new sqlite3.Database(DATABASE_PATH);
 
 // Initialize database tables
 db.serialize(() => {
@@ -211,6 +212,16 @@ app.get('/api/progress/summary', (req, res) => {
   });
 });
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    database: 'connected'
+  });
+});
+
 // Serve the main app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -219,6 +230,7 @@ app.get('*', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Nexus 2.0 Goal Acceleration Platform running on port ${PORT}`);
-  console.log(`📊 Database: ./data/nexus2.db`);
+  console.log(`📊 Database: ${DATABASE_PATH}`);
   console.log(`🌐 Open your browser to: http://localhost:${PORT}`);
+  console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
 });
