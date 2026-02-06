@@ -14,6 +14,7 @@ class NexusApp {
     }
 
     initializeApp() {
+        this.initializeTheme();
         this.bindEvents();
         this.loadInitialData();
         this.updateLiveStats();
@@ -22,7 +23,27 @@ class NexusApp {
         setInterval(() => this.updateLiveStats(), 30000); // Every 30 seconds
     }
 
+    initializeTheme() {
+        const savedTheme = localStorage.getItem('nexus-theme') || 'dark';
+        const html = document.documentElement;
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = themeToggle.querySelector('i');
+        const themeText = themeToggle.querySelector('.theme-text');
+        
+        html.setAttribute('data-theme', savedTheme);
+        if (savedTheme === 'light') {
+            themeIcon.className = 'fas fa-sun';
+            themeText.textContent = 'Light';
+        } else {
+            themeIcon.className = 'fas fa-moon';
+            themeText.textContent = 'Dark';
+        }
+    }
+
     bindEvents() {
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+        
         // Goal modal
         document.getElementById('addGoalBtn').addEventListener('click', () => this.showGoalModal());
         document.getElementById('cancelGoalBtn').addEventListener('click', () => this.hideGoalModal());
@@ -40,6 +61,27 @@ class NexusApp {
         document.getElementById('goalModal').addEventListener('click', (e) => {
             if (e.target.id === 'goalModal') this.hideGoalModal();
         });
+    }
+
+    toggleTheme() {
+        const html = document.documentElement;
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = themeToggle.querySelector('i');
+        const themeText = themeToggle.querySelector('.theme-text');
+        
+        if (html.getAttribute('data-theme') === 'light') {
+            // Switch to dark mode
+            html.setAttribute('data-theme', 'dark');
+            themeIcon.className = 'fas fa-moon';
+            themeText.textContent = 'Dark';
+            localStorage.setItem('nexus-theme', 'dark');
+        } else {
+            // Switch to light mode
+            html.setAttribute('data-theme', 'light');
+            themeIcon.className = 'fas fa-sun';
+            themeText.textContent = 'Light';
+            localStorage.setItem('nexus-theme', 'light');
+        }
     }
 
     async loadInitialData() {
