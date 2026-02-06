@@ -13,44 +13,60 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database setup - use a writable location
+// Database setup - use a writable location with persistence
 // Try multiple locations in order of preference:
 // 1. Environment variable DATABASE_PATH
 // 2. /app/data/nexus2.db (Docker volume if writable)
-// 3. /tmp/nexus2.db (always writable in containers)
-// 4. In-memory fallback
+// 3. /home/node/nexus2.db (user home directory, persists in container)
+// 4. In-memory fallback (last resort)
 
 let DATABASE_PATH;
 if (process.env.DATABASE_PATH) {
   DATABASE_PATH = process.env.DATABASE_PATH;
   console.log(`📊 Using DATABASE_PATH from environment: ${DATABASE_PATH}`);
 } else {
-  // Try /app/data first (Docker volume)
-  const dockerDataPath = path.join(__dirname, 'data', 'nexus2.db');
-  const tmpDataPath = '/tmp/nexus2.db';
+  // Try locations in order of preference
+  const locations = [
+    { path: path.join(__dirname, 'data', 'nexus2.db'), name: 'Docker volume' },
+    { path: '/home/node/nexus2.db', name: 'User home' },
+    { path: '/tmp/nexus2.db', name: 'Temp directory' }
+  ];
   
-  // Check if we can write to /app/data
-  try {
-    const dataDir = path.dirname(dockerDataPath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+  let selectedLocation = null;
+  
+  for (const location of locations) {
+    try {
+      const dataDir = path.dirname(location.path);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      // Test write permission
+      fs.accessSync(dataDir, fs.constants.W_OK);
+      selectedLocation = location;
+      break;
+    } catch (err) {
+      console.log(`⚠️ Cannot write to ${location.name} (${location.path}): ${err.message}`);
     }
-    // Test write permission
-    fs.accessSync(dataDir, fs.constants.W_OK);
-    DATABASE_PATH = dockerDataPath;
-    console.log(`📊 Using Docker volume path: ${DATABASE_PATH}`);
-  } catch (err) {
-    // Can't write to /app/data, use /tmp
-    DATABASE_PATH = tmpDataPath;
-    console.log(`📊 Cannot write to /app/data, using /tmp: ${DATABASE_PATH}`);
-    console.log(`⚠️ Note: /tmp data may not persist between container restarts`);
+  }
+  
+  if (selectedLocation) {
+    DATABASE_PATH = selectedLocation.path;
+    console.log(`📊 Using ${selectedLocation.name} path: ${DATABASE_PATH}`);
+    if (selectedLocation.name === 'Temp directory') {
+      console.log(`⚠️ Note: /tmp data may not persist between container restarts`);
+    }
+  } else {
+    // All file-based locations failed, will use in-memory
+    DATABASE_PATH = ':memory:';
+    console.log(`⚠️ All file-based locations failed, using in-memory database`);
+    console.log(`⚠️ WARNING: Data will be lost on app restart!`);
   }
 }
 
-const dataDir = path.dirname(DATABASE_PATH);
+const dataDir = DATABASE_PATH !== ':memory:' ? path.dirname(DATABASE_PATH) : null;
 
-// Create data directory if it doesn't exist
-if (!fs.existsSync(dataDir)) {
+// Create data directory if it doesn't exist (for file-based databases)
+if (dataDir && !fs.existsSync(dataDir)) {
   try {
     fs.mkdirSync(dataDir, { recursive: true });
     console.log(`📁 Created data directory: ${dataDir}`);
@@ -149,7 +165,36 @@ function initializeTables(db, callback) {
 // Helper function to get a database connection with automatic table initialization
 function getDatabaseConnection() {
   return new Promise((resolve, reject) => {
-    // Try to use file-based database first
+    // If DATABASE_PATH is already :memory:, use in-memory directly
+    if (DATABASE_PATH === ':memory:') {
+      console.log(`🔧 Creating in-memory database (pre-configured)`);
+      const db = new sqlite3.Database(':memory:', (err) => {
+        if (err) {
+          console.error(`❌ Failed to create in-memory database: ${err.message}`);
+          reject(err);
+          return;
+        }
+        
+        // Configure database
+        db.configure("busyTimeout", 5000);
+        
+        // Initialize tables
+        initializeTables(db, (initErr) => {
+          if (initErr) {
+            console.error(`❌ Failed to initialize in-memory tables: ${initErr.message}`);
+            db.close();
+            reject(initErr);
+            return;
+          }
+          
+          console.log(`✅ Using in-memory database`);
+          resolve(db);
+        });
+      });
+      return;
+    }
+    
+    // Try to use file-based database
     const tryFileBased = () => {
       console.log(`🔧 Attempting to open database file: ${DATABASE_PATH}`);
       const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
@@ -180,7 +225,7 @@ function getDatabaseConnection() {
     
     // Fallback to in-memory database
     const tryInMemory = () => {
-      console.log(`🔧 Creating in-memory database`);
+      console.log(`🔧 Creating in-memory database (fallback)`);
       const db = new sqlite3.Database(':memory:', (err) => {
         if (err) {
           console.error(`❌ Failed to create in-memory database: ${err.message}`);
@@ -200,7 +245,7 @@ function getDatabaseConnection() {
             return;
           }
           
-          console.log(`✅ Using in-memory database`);
+          console.log(`✅ Using in-memory database (fallback)`);
           resolve(db);
         });
       });

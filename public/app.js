@@ -28,15 +28,12 @@ class NexusApp {
         const html = document.documentElement;
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = themeToggle.querySelector('i');
-        const themeText = themeToggle.querySelector('.theme-text');
         
         html.setAttribute('data-theme', savedTheme);
         if (savedTheme === 'light') {
             themeIcon.className = 'fas fa-sun';
-            themeText.textContent = 'Light';
         } else {
             themeIcon.className = 'fas fa-moon';
-            themeText.textContent = 'Dark';
         }
     }
 
@@ -67,19 +64,16 @@ class NexusApp {
         const html = document.documentElement;
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = themeToggle.querySelector('i');
-        const themeText = themeToggle.querySelector('.theme-text');
         
         if (html.getAttribute('data-theme') === 'light') {
             // Switch to dark mode
             html.setAttribute('data-theme', 'dark');
             themeIcon.className = 'fas fa-moon';
-            themeText.textContent = 'Dark';
             localStorage.setItem('nexus-theme', 'dark');
         } else {
             // Switch to light mode
             html.setAttribute('data-theme', 'light');
             themeIcon.className = 'fas fa-sun';
-            themeText.textContent = 'Light';
             localStorage.setItem('nexus-theme', 'light');
         }
     }
