@@ -102,12 +102,19 @@ db.serialize(() => {
 
 // Goals endpoints
 app.get('/api/goals', (req, res) => {
+  // Set timeout for database query
+  const timeout = setTimeout(() => {
+    res.status(504).json({ error: 'Database query timeout' });
+  }, 5000); // 5 second timeout
+
   db.all('SELECT * FROM goals ORDER BY priority DESC, created_at DESC', (err, rows) => {
+    clearTimeout(timeout);
     if (err) {
+      console.error('Goals query error:', err.message);
       res.status(500).json({ error: err.message });
       return;
     }
-    res.json(rows);
+    res.json(rows || []);
   });
 });
 
@@ -230,11 +237,34 @@ app.get('/api/progress/summary', (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  // Test database connection
+  db.get('SELECT 1 as test', (err, row) => {
+    if (err) {
+      res.json({
+        status: 'degraded',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        database: 'error',
+        error: err.message
+      });
+      return;
+    }
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      database: 'connected',
+      test: row.test
+    });
+  });
+});
+
+// Simple test endpoint
+app.get('/api/test', (req, res) => {
   res.json({
-    status: 'healthy',
+    message: 'Nexus 2.0 API is working',
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    database: 'connected'
+    endpoints: ['/api/health', '/api/goals', '/api/tasks', '/api/focus/next-task']
   });
 });
 
