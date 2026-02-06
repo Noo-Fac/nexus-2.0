@@ -10,4 +10,5 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - DATABASE_PATH=/app/data/nexus2.db
     restart: unless-stopped

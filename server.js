@@ -3,6 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -12,9 +13,24 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database setup
-const DATABASE_PATH = process.env.DATABASE_PATH || './data/nexus2.db';
-const db = new sqlite3.Database(DATABASE_PATH);
+// Database setup - ensure data directory exists
+const DATABASE_PATH = process.env.DATABASE_PATH || '/app/data/nexus2.db';
+const dataDir = path.dirname(DATABASE_PATH);
+
+// Create data directory if it doesn't exist
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+  console.log(`📁 Created data directory: ${dataDir}`);
+}
+
+// Create database with error handling
+const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+  if (err) {
+    console.error(`❌ Database error: ${err.message}`);
+  } else {
+    console.log(`✅ Connected to SQLite database at: ${DATABASE_PATH}`);
+  }
+});
 
 // Initialize database tables
 db.serialize(() => {
