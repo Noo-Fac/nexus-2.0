@@ -178,71 +178,8 @@ function getDatabaseConnection() {
   });
 }
 
-// Initialize database tables
-db.serialize(() => {
-  // Goals table - the core of Nexus 2.0
-  db.run(`CREATE TABLE IF NOT EXISTS goals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    category TEXT,
-    target_date TEXT,
-    priority TEXT DEFAULT 'medium',
-    progress INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  // Tasks table - connected to goals
-  db.run(`CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    goal_id INTEGER,
-    title TEXT NOT NULL,
-    description TEXT,
-    status TEXT DEFAULT 'pending',
-    priority TEXT DEFAULT 'medium',
-    estimated_time INTEGER,
-    actual_time INTEGER,
-    due_date TEXT,
-    completed_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
-  )`);
-
-  // Resources table - connects tasks to tools/learning materials
-  db.run(`CREATE TABLE IF NOT EXISTS resources (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    title TEXT NOT NULL,
-    url TEXT,
-    type TEXT,
-    description TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-  )`);
-
-  // Focus sessions table
-  db.run(`CREATE TABLE IF NOT EXISTS focus_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    duration INTEGER,
-    start_time DATETIME,
-    end_time DATETIME,
-    distractions INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-  )`);
-
-  // Learning patterns table - tracks what works
-  db.run(`CREATE TABLE IF NOT EXISTS learning_patterns (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pattern_type TEXT,
-    pattern_value TEXT,
-    success_rate REAL,
-    sample_size INTEGER,
-    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-});
+// Database tables are initialized by the initializeDatabase function
+// which runs on startup. No need for separate db.serialize() block here.
 
 // API Routes
 
