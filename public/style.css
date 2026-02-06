@@ -300,6 +300,63 @@ body {
     color: var(--text-muted);
 }
 
+.goal-deadline {
+    margin-top: var(--spacing-sm);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.goal-actions {
+    margin-top: var(--spacing-md);
+    display: flex;
+    gap: var(--spacing-xs);
+    border-top: 1px solid var(--border-color);
+    padding-top: var(--spacing-sm);
+}
+
+.btn-action {
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+
+.btn-edit {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-edit:hover {
+    background: var(--primary-dark);
+}
+
+.btn-delete {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-delete:hover {
+    background: #dc2626;
+}
+
+.btn-progress {
+    background: var(--secondary);
+    color: white;
+}
+
+.btn-progress:hover {
+    background: #059669;
+}
+
 /* Progress Summary */
 .progress-summary {
     padding: var(--spacing-md);

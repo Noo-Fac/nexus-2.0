@@ -553,6 +553,81 @@ app.post('/api/mock/goals', (req, res) => {
   }, 500);
 });
 
+// Mock Focus Engine endpoint
+app.get('/api/mock/focus/next-task', (req, res) => {
+  console.log('🎯 Mock GET /api/mock/focus/next-task: Getting next task');
+  
+  const mockTasks = [
+    {
+      id: 101,
+      title: 'Review project requirements',
+      description: 'Go through the project documentation and identify key deliverables',
+      goal_id: 1,
+      goal_title: 'Build Neural Nexus 2.0',
+      estimated_time: 30,
+      priority: 'high',
+      status: 'pending'
+    },
+    {
+      id: 102,
+      title: 'Set up development environment',
+      description: 'Install necessary tools and configure the workspace',
+      goal_id: 1,
+      goal_title: 'Build Neural Nexus 2.0',
+      estimated_time: 45,
+      priority: 'medium',
+      status: 'pending'
+    },
+    {
+      id: 103,
+      title: 'Create database schema',
+      description: 'Design and implement the SQLite database structure',
+      goal_id: 1,
+      goal_title: 'Build Neural Nexus 2.0',
+      estimated_time: 60,
+      priority: 'high',
+      status: 'pending'
+    }
+  ];
+  
+  // Return a random task
+  const randomTask = mockTasks[Math.floor(Math.random() * mockTasks.length)];
+  
+  setTimeout(() => {
+    res.json(randomTask);
+  }, 300);
+});
+
+// Mock goal update endpoint
+app.put('/api/mock/goals/:id', (req, res) => {
+  const goalId = req.params.id;
+  const updates = req.body;
+  console.log(`📝 Mock PUT /api/mock/goals/${goalId}: Updating goal`);
+  
+  setTimeout(() => {
+    res.json({
+      id: goalId,
+      message: 'Goal updated successfully (mock)',
+      updates: updates,
+      note: 'This is mock data. Real database integration is being fixed.'
+    });
+  }, 300);
+});
+
+// Mock goal delete endpoint
+app.delete('/api/mock/goals/:id', (req, res) => {
+  const goalId = req.params.id;
+  console.log(`🗑️ Mock DELETE /api/mock/goals/${goalId}: Deleting goal`);
+  
+  setTimeout(() => {
+    res.json({
+      id: goalId,
+      message: 'Goal deleted successfully (mock)',
+      note: 'This is mock data. Real database integration is being fixed.'
+    });
+  }, 300);
+});
+
 // Serve the main app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

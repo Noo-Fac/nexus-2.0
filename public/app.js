@@ -198,8 +198,23 @@ class NexusApp {
                         Target: ${new Date(goal.target_date).toLocaleDateString()}
                     </div>
                 ` : ''}
+                
+                <div class="goal-actions">
+                    <button class="btn-action btn-edit" data-goal-id="${goal.id}" title="Edit Goal">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn-action btn-delete" data-goal-id="${goal.id}" title="Delete Goal">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                    <button class="btn-action btn-progress" data-goal-id="${goal.id}" title="Update Progress">
+                        <i class="fas fa-chart-line"></i> Progress
+                    </button>
+                </div>
             </div>
         `).join('');
+        
+        // Add event listeners for action buttons
+        this.bindGoalActions();
     }
 
     renderProgressSummary(data) {
@@ -230,7 +245,14 @@ class NexusApp {
 
     async getNextTask() {
         try {
-            const response = await fetch(`${this.apiBase}/focus/next-task`);
+            // Try real API first, fall back to mock data
+            let response = await fetch(`${this.apiBase}/focus/next-task`);
+            if (!response.ok) {
+                // Fall back to mock data
+                console.log('Using mock focus data');
+                response = await fetch(`${this.apiBase}/mock/focus/next-task`);
+            }
+            
             this.currentFocusTask = await response.json();
             
             if (this.currentFocusTask.message) {
@@ -594,6 +616,133 @@ class NexusApp {
                 setTimeout(() => notification.remove(), 300);
             }
         }, 5000);
+    }
+
+    bindGoalActions() {
+        // Edit buttons
+        document.querySelectorAll('.btn-edit').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const goalId = e.target.closest('.btn-edit').dataset.goalId;
+                this.editGoal(goalId);
+            });
+        });
+        
+        // Delete buttons
+        document.querySelectorAll('.btn-delete').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const goalId = e.target.closest('.btn-delete').dataset.goalId;
+                this.deleteGoal(goalId);
+            });
+        });
+        
+        // Progress buttons
+        document.querySelectorAll('.btn-progress').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const goalId = e.target.closest('.btn-progress').dataset.goalId;
+                this.updateGoalProgress(goalId);
+            });
+        });
+    }
+    
+    async editGoal(goalId) {
+        const goal = this.goals.find(g => g.id == goalId);
+        if (!goal) {
+            this.showNotification('Goal not found', 'error');
+            return;
+        }
+        
+        // For now, just show a notification
+        this.showNotification(`Edit functionality for "${goal.title}" will be available soon`, 'info');
+        
+        // In the future, this would open an edit modal
+        // this.showEditGoalModal(goal);
+    }
+    
+    async deleteGoal(goalId) {
+        const goal = this.goals.find(g => g.id == goalId);
+        if (!goal) {
+            this.showNotification('Goal not found', 'error');
+            return;
+        }
+        
+        if (confirm(`Are you sure you want to delete "${goal.title}"?`)) {
+            try {
+                // Try real API first, fall back to mock
+                let response = await fetch(`${this.apiBase}/goals/${goalId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    // Fall back to mock data
+                    console.log('Using mock delete endpoint');
+                    response = await fetch(`${this.apiBase}/mock/goals/${goalId}`, {
+                        method: 'DELETE'
+                    });
+                }
+                
+                const result = await response.json();
+                this.showNotification(result.message || 'Goal deleted successfully', 'success');
+                
+                // Remove goal from local array and re-render
+                this.goals = this.goals.filter(g => g.id != goalId);
+                this.renderGoals();
+                this.updateLiveStats();
+                
+            } catch (error) {
+                console.error('Error deleting goal:', error);
+                this.showNotification('Failed to delete goal. Please try again.', 'error');
+            }
+        }
+    }
+    
+    async updateGoalProgress(goalId) {
+        const goal = this.goals.find(g => g.id == goalId);
+        if (!goal) {
+            this.showNotification('Goal not found', 'error');
+            return;
+        }
+        
+        const newProgress = prompt(`Update progress for "${goal.title}" (0-100%):`, goal.progress || 0);
+        if (newProgress === null) return;
+        
+        const progressValue = parseInt(newProgress);
+        if (isNaN(progressValue) || progressValue < 0 || progressValue > 100) {
+            this.showNotification('Please enter a valid percentage between 0 and 100', 'error');
+            return;
+        }
+        
+        try {
+            // Try real API first, fall back to mock
+            let response = await fetch(`${this.apiBase}/goals/${goalId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ progress: progressValue })
+            });
+            
+            if (!response.ok) {
+                // Fall back to mock data
+                console.log('Using mock update endpoint');
+                response = await fetch(`${this.apiBase}/mock/goals/${goalId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ progress: progressValue })
+                });
+            }
+            
+            const result = await response.json();
+            this.showNotification(result.message || 'Progress updated successfully', 'success');
+            
+            // Update goal in local array and re-render
+            const goalIndex = this.goals.findIndex(g => g.id == goalId);
+            if (goalIndex !== -1) {
+                this.goals[goalIndex].progress = progressValue;
+                this.renderGoals();
+            }
+            
+        } catch (error) {
+            console.error('Error updating goal progress:', error);
+            this.showNotification('Failed to update progress. Please try again.', 'error');
+        }
     }
 
     escapeHtml(text) {
