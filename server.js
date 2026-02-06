@@ -544,6 +544,78 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Mock data for testing UI while we fix database issues
+app.get('/api/mock/goals', (req, res) => {
+  const mockGoals = [
+    {
+      id: 1,
+      title: 'Build Neural Nexus 2.0',
+      description: 'Create a goal acceleration platform with AI integration',
+      category: 'business',
+      priority: 'high',
+      progress: 75,
+      target_date: '2026-02-28',
+      created_at: '2026-02-01T10:00:00.000Z'
+    },
+    {
+      id: 2,
+      title: 'Learn Advanced React Patterns',
+      description: 'Master hooks, context, and state management',
+      category: 'learning',
+      priority: 'medium',
+      progress: 30,
+      target_date: '2026-03-15',
+      created_at: '2026-02-03T14:30:00.000Z'
+    },
+    {
+      id: 3,
+      title: 'Improve Physical Fitness',
+      description: 'Exercise 4 times per week and improve diet',
+      category: 'health',
+      priority: 'medium',
+      progress: 50,
+      target_date: '2026-04-01',
+      created_at: '2026-02-05T09:15:00.000Z'
+    }
+  ];
+  
+  res.json(mockGoals);
+});
+
+app.get('/api/mock/progress/summary', (req, res) => {
+  res.json({
+    summary: {
+      total_goals: 3,
+      completed_goals: 0,
+      average_progress: 51.67,
+      categories_count: 3
+    },
+    tasks: [
+      { status: 'pending', count: 5 },
+      { status: 'in_progress', count: 2 },
+      { status: 'completed', count: 3 }
+    ]
+  });
+});
+
+// Mock POST goals endpoint for testing
+app.post('/api/mock/goals', (req, res) => {
+  const { title, description, category, target_date, priority } = req.body;
+  console.log(`📝 Mock POST /api/mock/goals: Creating goal "${title}"`);
+  
+  // Generate a mock ID
+  const mockId = Math.floor(Math.random() * 1000) + 100;
+  
+  // Simulate a delay
+  setTimeout(() => {
+    res.json({
+      id: mockId,
+      message: 'Goal created successfully (mock)',
+      note: 'This is mock data. Real database integration is being fixed.'
+    });
+  }, 500);
+});
+
 // Serve the main app
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
