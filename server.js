@@ -29,152 +29,154 @@ if (!fs.existsSync(dataDir)) {
   }
 }
 
-// Initialize database tables on first run
-function initializeDatabase(callback) {
-  const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-    if (err) {
-      console.error(`❌ Database initialization error: ${err.message}`);
-      callback(err);
-      return;
-    }
-    
+// Test database connection on startup
+getDatabaseConnection()
+  .then((db) => {
+    console.log(`✅ Database connection test successful`);
+    db.close();
+  })
+  .catch((err) => {
+    console.error(`❌ Database connection test failed: ${err.message}`);
+  });
+
+// Function to initialize database tables
+function initializeTables(db, callback) {
+  db.serialize(() => {
     // Configure database
-    db.configure("busyTimeout", 5000);
     db.run("PRAGMA journal_mode = WAL;");
     db.run("PRAGMA synchronous = NORMAL;");
     db.run("PRAGMA foreign_keys = ON;");
     
     // Create tables
-    db.serialize(() => {
-      // Goals table - the core of Nexus 2.0
-      db.run(`CREATE TABLE IF NOT EXISTS goals (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT,
-        category TEXT,
-        target_date TEXT,
-        priority TEXT DEFAULT 'medium',
-        progress INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`);
+    db.run(`CREATE TABLE IF NOT EXISTS goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      category TEXT,
+      target_date TEXT,
+      priority TEXT DEFAULT 'medium',
+      progress INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
 
-      // Tasks table - connected to goals
-      db.run(`CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        goal_id INTEGER,
-        title TEXT NOT NULL,
-        description TEXT,
-        status TEXT DEFAULT 'pending',
-        priority TEXT DEFAULT 'medium',
-        estimated_time INTEGER,
-        actual_time INTEGER,
-        due_date TEXT,
-        completed_at DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
-      )`);
+    db.run(`CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      goal_id INTEGER,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT DEFAULT 'pending',
+      priority TEXT DEFAULT 'medium',
+      estimated_time INTEGER,
+      actual_time INTEGER,
+      due_date TEXT,
+      completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+    )`);
 
-      // Resources table - connects tasks to tools/learning materials
-      db.run(`CREATE TABLE IF NOT EXISTS resources (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id INTEGER,
-        title TEXT NOT NULL,
-        url TEXT,
-        type TEXT,
-        description TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-      )`);
+    db.run(`CREATE TABLE IF NOT EXISTS resources (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER,
+      title TEXT NOT NULL,
+      url TEXT,
+      type TEXT,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )`);
 
-      // Focus sessions table
-      db.run(`CREATE TABLE IF NOT EXISTS focus_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id INTEGER,
-        duration INTEGER,
-        start_time DATETIME,
-        end_time DATETIME,
-        distractions INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-      )`);
+    db.run(`CREATE TABLE IF NOT EXISTS focus_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER,
+      duration INTEGER,
+      start_time DATETIME,
+      end_time DATETIME,
+      distractions INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    )`);
 
-      // Learning patterns table - tracks what works
-      db.run(`CREATE TABLE IF NOT EXISTS learning_patterns (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        pattern_type TEXT,
-        pattern_value TEXT,
-        success_rate REAL,
-        sample_size INTEGER,
-        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
-      )`);
-      
-      console.log(`✅ Database tables initialized at: ${DATABASE_PATH}`);
-    });
+    db.run(`CREATE TABLE IF NOT EXISTS learning_patterns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pattern_type TEXT,
+      pattern_value TEXT,
+      success_rate REAL,
+      sample_size INTEGER,
+      last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
     
-    db.close((closeErr) => {
-      if (closeErr) {
-        console.error(`❌ Error closing database: ${closeErr.message}`);
-      }
-      callback(null);
-    });
+    console.log(`✅ Database tables initialized`);
+  });
+  
+  // Call callback after all tables are created
+  db.wait(() => {
+    callback(null);
   });
 }
 
-// Initialize database on startup
-initializeDatabase((err) => {
-  if (err) {
-    console.error(`❌ Failed to initialize database: ${err.message}`);
-  } else {
-    console.log(`✅ Database initialization complete`);
-  }
-});
-
-// Helper function to get a database connection
+// Helper function to get a database connection with automatic table initialization
 function getDatabaseConnection() {
   return new Promise((resolve, reject) => {
-    // First check if we can access the data directory
-    fs.access(dataDir, fs.constants.W_OK, (accessErr) => {
-      if (accessErr) {
-        console.warn(`⚠️ Cannot write to data directory ${dataDir}: ${accessErr.message}`);
-        console.warn(`⚠️ Using in-memory database instead`);
-        // Use in-memory database as fallback
-        const db = new sqlite3.Database(':memory:', (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          db.configure("busyTimeout", 5000);
-          resolve(db);
-        });
-        return;
-      }
-      
-      // Use file-based database
+    // Try to use file-based database first
+    const tryFileBased = () => {
+      console.log(`🔧 Attempting to open database file: ${DATABASE_PATH}`);
       const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
         if (err) {
           console.error(`❌ Failed to open database file ${DATABASE_PATH}: ${err.message}`);
-          console.warn(`⚠️ Falling back to in-memory database`);
-          // Fall back to in-memory database
-          const fallbackDb = new sqlite3.Database(':memory:', (fallbackErr) => {
-            if (fallbackErr) {
-              reject(fallbackErr);
-              return;
-            }
-            fallbackDb.configure("busyTimeout", 5000);
-            resolve(fallbackDb);
-          });
+          console.log(`⚠️ Falling back to in-memory database`);
+          tryInMemory();
           return;
         }
         
         // Configure database
         db.configure("busyTimeout", 5000);
-        db.run("PRAGMA journal_mode = WAL;");
-        db.run("PRAGMA synchronous = NORMAL;");
-        db.run("PRAGMA foreign_keys = ON;");
-        resolve(db);
+        
+        // Initialize tables
+        initializeTables(db, (initErr) => {
+          if (initErr) {
+            console.error(`❌ Failed to initialize tables: ${initErr.message}`);
+            db.close();
+            reject(initErr);
+            return;
+          }
+          
+          console.log(`✅ Using file-based database: ${DATABASE_PATH}`);
+          resolve(db);
+        });
       });
-    });
+    };
+    
+    // Fallback to in-memory database
+    const tryInMemory = () => {
+      console.log(`🔧 Creating in-memory database`);
+      const db = new sqlite3.Database(':memory:', (err) => {
+        if (err) {
+          console.error(`❌ Failed to create in-memory database: ${err.message}`);
+          reject(err);
+          return;
+        }
+        
+        // Configure database
+        db.configure("busyTimeout", 5000);
+        
+        // Initialize tables
+        initializeTables(db, (initErr) => {
+          if (initErr) {
+            console.error(`❌ Failed to initialize in-memory tables: ${initErr.message}`);
+            db.close();
+            reject(initErr);
+            return;
+          }
+          
+          console.log(`✅ Using in-memory database`);
+          resolve(db);
+        });
+      });
+    };
+    
+    // Start with file-based database
+    tryFileBased();
   });
 }
 
@@ -369,107 +371,59 @@ app.get('/api/progress/summary', (req, res) => {
   });
 });
 
-// Health check endpoint - simplified version that doesn't depend on database
-app.get('/api/health', (req, res) => {
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
   console.log('🏥 Health check requested');
   
-  // Try to check database, but don't fail if it doesn't work
-  const checkDatabase = () => {
-    return new Promise((resolve) => {
-      const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READONLY, (err) => {
-        if (err) {
-          console.log(`⚠️ Health check: Database connection failed: ${err.message}`);
-          resolve({ connected: false, error: err.message });
-          return;
-        }
-        
-        const startTime = Date.now();
-        db.get('SELECT 1 as test', (queryErr, row) => {
-          const queryTime = Date.now() - startTime;
-          
-          db.close((closeErr) => {
-            if (closeErr) {
-              console.error(`⚠️ Health check: Error closing database: ${closeErr.message}`);
-            }
-          });
-          
-          if (queryErr) {
-            console.log(`⚠️ Health check: Database query failed (${queryTime}ms): ${queryErr.message}`);
-            resolve({ connected: false, error: queryErr.message, queryTime });
-          } else {
-            console.log(`✅ Health check: Database connected (${queryTime}ms)`);
-            resolve({ connected: true, test: row.test, queryTime });
-          }
-        });
-      });
-    });
-  };
-  
-  // Set timeout for entire health check
-  const timeout = setTimeout(() => {
-    console.error('❌ Health check: Overall timeout after 5 seconds');
-    res.json({
-      status: 'degraded',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      database: 'timeout',
-      message: 'Health check timed out',
-      app: 'running'
-    });
-  }, 5000);
-  
-  // Check database with its own timeout
-  const databaseTimeout = setTimeout(() => {
-    console.log('⚠️ Health check: Database check taking too long, responding without it');
-    clearTimeout(timeout);
-    res.json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      database: 'check_timeout',
-      message: 'App is running but database check timed out',
-      app: 'running'
-    });
-  }, 3000);
-  
-  checkDatabase().then((dbResult) => {
-    clearTimeout(databaseTimeout);
-    clearTimeout(timeout);
+  try {
+    const db = await getDatabaseConnection();
     
-    if (dbResult.connected) {
-      res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        version: '1.0.0',
-        database: 'connected',
-        test: dbResult.test,
-        queryTime: `${dbResult.queryTime}ms`,
-        app: 'running'
+    const startTime = Date.now();
+    db.get('SELECT 1 as test', (err, row) => {
+      const queryTime = Date.now() - startTime;
+      
+      db.close((closeErr) => {
+        if (closeErr) {
+          console.error(`⚠️ Health check: Error closing database: ${closeErr.message}`);
+        }
       });
-    } else {
-      res.json({
-        status: 'degraded',
-        timestamp: new Date().toISOString(),
-        version: '1.0.0',
-        database: 'error',
-        error: dbResult.error,
-        app: 'running',
-        message: 'App is running but database has issues'
-      });
-    }
-  }).catch((err) => {
-    clearTimeout(databaseTimeout);
-    clearTimeout(timeout);
-    console.error(`❌ Health check: Unexpected error: ${err.message}`);
+      
+      if (err) {
+        console.log(`⚠️ Health check: Database query failed (${queryTime}ms): ${err.message}`);
+        res.json({
+          status: 'degraded',
+          timestamp: new Date().toISOString(),
+          version: '1.0.0',
+          database: 'error',
+          error: err.message,
+          app: 'running',
+          message: 'App is running but database has issues'
+        });
+      } else {
+        console.log(`✅ Health check: Database connected (${queryTime}ms)`);
+        res.json({
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          version: '1.0.0',
+          database: 'connected',
+          test: row.test,
+          queryTime: `${queryTime}ms`,
+          app: 'running'
+        });
+      }
+    });
+  } catch (err) {
+    console.error(`❌ Health check: Failed to get database connection: ${err.message}`);
     res.json({
       status: 'degraded',
       timestamp: new Date().toISOString(),
       version: '1.0.0',
-      database: 'unexpected_error',
+      database: 'connection_failed',
       error: err.message,
-      app: 'running'
+      app: 'running',
+      message: 'App is running but cannot connect to database'
     });
-  });
+  }
 });
 
 // Simple test endpoint (no database required)
