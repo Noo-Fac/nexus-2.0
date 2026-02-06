@@ -108,14 +108,34 @@ The SQLite database is automatically created at `./data/nexus2.db` on first run.
 
 ## Deployment
 
-### Coolify Deployment
-Use the included Coolify deployment skill:
+### Local Development
 ```bash
-./deploy-app.sh "nexus-2.0" "https://github.com/Noo-Fac/nexus-2.0.git" "main"
+npm install
+npm start
+# Access at http://localhost:3001
 ```
 
+### Docker Deployment
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Or with Docker directly
+docker build -t nexus-2-0 .
+docker run -p 3001:3001 -v $(pwd)/data:/app/data nexus-2-0
+```
+
+### Coolify Deployment
+1. Connect GitHub repository: `Noo-Fac/nexus-2.0`
+2. Use `docker-compose.yml` for deployment
+3. Port: 3001
+4. Access at: https://nexus-2-0.noospherefactotum.com
+
 ### Environment Variables
+Copy `.env.example` to `.env` and configure:
 - `PORT` - Server port (default: 3001)
+- `DATABASE_PATH` - SQLite database path
+- `SESSION_SECRET` - Secret for sessions
 - `NODE_ENV` - Environment (development/production)
 
 ## Development Roadmap
