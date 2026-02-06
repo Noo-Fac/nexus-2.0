@@ -13,9 +13,40 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database setup - use local database file in current directory
-// This avoids permission issues with Docker volumes
-const DATABASE_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'data', 'nexus2.db');
+// Database setup - use a writable location
+// Try multiple locations in order of preference:
+// 1. Environment variable DATABASE_PATH
+// 2. /app/data/nexus2.db (Docker volume if writable)
+// 3. /tmp/nexus2.db (always writable in containers)
+// 4. In-memory fallback
+
+let DATABASE_PATH;
+if (process.env.DATABASE_PATH) {
+  DATABASE_PATH = process.env.DATABASE_PATH;
+  console.log(`📊 Using DATABASE_PATH from environment: ${DATABASE_PATH}`);
+} else {
+  // Try /app/data first (Docker volume)
+  const dockerDataPath = path.join(__dirname, 'data', 'nexus2.db');
+  const tmpDataPath = '/tmp/nexus2.db';
+  
+  // Check if we can write to /app/data
+  try {
+    const dataDir = path.dirname(dockerDataPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    // Test write permission
+    fs.accessSync(dataDir, fs.constants.W_OK);
+    DATABASE_PATH = dockerDataPath;
+    console.log(`📊 Using Docker volume path: ${DATABASE_PATH}`);
+  } catch (err) {
+    // Can't write to /app/data, use /tmp
+    DATABASE_PATH = tmpDataPath;
+    console.log(`📊 Cannot write to /app/data, using /tmp: ${DATABASE_PATH}`);
+    console.log(`⚠️ Note: /tmp data may not persist between container restarts`);
+  }
+}
+
 const dataDir = path.dirname(DATABASE_PATH);
 
 // Create data directory if it doesn't exist
@@ -25,7 +56,7 @@ if (!fs.existsSync(dataDir)) {
     console.log(`📁 Created data directory: ${dataDir}`);
   } catch (err) {
     console.error(`❌ Failed to create data directory ${dataDir}: ${err.message}`);
-    console.log(`⚠️ Falling back to in-memory database`);
+    console.log(`⚠️ Will use in-memory database if file-based fails`);
   }
 }
 
