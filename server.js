@@ -23,29 +23,122 @@ if (!fs.existsSync(dataDir)) {
   console.log(`📁 Created data directory: ${dataDir}`);
 }
 
-// Create database with better error handling and timeout
-const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+// Initialize database tables on first run
+function initializeDatabase(callback) {
+  const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+    if (err) {
+      console.error(`❌ Database initialization error: ${err.message}`);
+      callback(err);
+      return;
+    }
+    
+    // Configure database
+    db.configure("busyTimeout", 5000);
+    db.run("PRAGMA journal_mode = WAL;");
+    db.run("PRAGMA synchronous = NORMAL;");
+    db.run("PRAGMA foreign_keys = ON;");
+    
+    // Create tables
+    db.serialize(() => {
+      // Goals table - the core of Nexus 2.0
+      db.run(`CREATE TABLE IF NOT EXISTS goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT,
+        target_date TEXT,
+        priority TEXT DEFAULT 'medium',
+        progress INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+
+      // Tasks table - connected to goals
+      db.run(`CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        goal_id INTEGER,
+        title TEXT NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'pending',
+        priority TEXT DEFAULT 'medium',
+        estimated_time INTEGER,
+        actual_time INTEGER,
+        due_date TEXT,
+        completed_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+      )`);
+
+      // Resources table - connects tasks to tools/learning materials
+      db.run(`CREATE TABLE IF NOT EXISTS resources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER,
+        title TEXT NOT NULL,
+        url TEXT,
+        type TEXT,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )`);
+
+      // Focus sessions table
+      db.run(`CREATE TABLE IF NOT EXISTS focus_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER,
+        duration INTEGER,
+        start_time DATETIME,
+        end_time DATETIME,
+        distractions INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )`);
+
+      // Learning patterns table - tracks what works
+      db.run(`CREATE TABLE IF NOT EXISTS learning_patterns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pattern_type TEXT,
+        pattern_value TEXT,
+        success_rate REAL,
+        sample_size INTEGER,
+        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+      
+      console.log(`✅ Database tables initialized at: ${DATABASE_PATH}`);
+    });
+    
+    db.close((closeErr) => {
+      if (closeErr) {
+        console.error(`❌ Error closing database: ${closeErr.message}`);
+      }
+      callback(null);
+    });
+  });
+}
+
+// Initialize database on startup
+initializeDatabase((err) => {
   if (err) {
-    console.error(`❌ Database connection error: ${err.message}`);
-    console.error(`❌ Database path: ${DATABASE_PATH}`);
-    console.error(`❌ Error code: ${err.code}`);
+    console.error(`❌ Failed to initialize database: ${err.message}`);
   } else {
-    console.log(`✅ Connected to SQLite database at: ${DATABASE_PATH}`);
-    
-    // Configure database for better performance
-    db.configure("busyTimeout", 5000); // 5 second timeout for locked database
-    db.run("PRAGMA journal_mode = WAL;"); // Write-Ahead Logging for better concurrency
-    db.run("PRAGMA synchronous = NORMAL;"); // Balance between safety and performance
-    db.run("PRAGMA foreign_keys = ON;"); // Enable foreign key constraints
-    
-    console.log(`✅ Database configured with WAL mode and 5s timeout`);
+    console.log(`✅ Database initialization complete`);
   }
 });
 
-// Handle database errors
-db.on('error', (err) => {
-  console.error(`❌ Database error event: ${err.message}`);
-});
+// Helper function to get a database connection
+function getDatabaseConnection() {
+  return new Promise((resolve, reject) => {
+    const db = new sqlite3.Database(DATABASE_PATH, sqlite3.OPEN_READWRITE, (err) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      // Configure database
+      db.configure("busyTimeout", 5000);
+      resolve(db);
+    });
+  });
+}
 
 // Initialize database tables
 db.serialize(() => {
@@ -116,59 +209,87 @@ db.serialize(() => {
 // API Routes
 
 // Goals endpoints
-app.get('/api/goals', (req, res) => {
+app.get('/api/goals', async (req, res) => {
   console.log(`📊 GET /api/goals request received`);
   
-  // Set timeout for database query
-  const timeout = setTimeout(() => {
-    console.error('❌ GET /api/goals: Database query timeout after 5 seconds');
-    res.status(504).json({ error: 'Database query timeout', message: 'The database query took too long to execute' });
-  }, 5000); // 5 second timeout
-
-  const startTime = Date.now();
-  db.all('SELECT * FROM goals ORDER BY priority DESC, created_at DESC', (err, rows) => {
-    const queryTime = Date.now() - startTime;
-    clearTimeout(timeout);
+  try {
+    const db = await getDatabaseConnection();
     
-    if (err) {
-      console.error(`❌ GET /api/goals: Database error (${queryTime}ms):`, err.message);
-      res.status(500).json({ error: err.message, queryTime: `${queryTime}ms` });
-      return;
-    }
-    
-    console.log(`✅ GET /api/goals: Successfully retrieved ${rows?.length || 0} goals (${queryTime}ms)`);
-    res.json(rows || []);
-  });
-});
+    // Set timeout for database query
+    const timeout = setTimeout(() => {
+      console.error('❌ GET /api/goals: Database query timeout after 5 seconds');
+      db.close();
+      res.status(504).json({ error: 'Database query timeout', message: 'The database query took too long to execute' });
+    }, 5000);
 
-app.post('/api/goals', (req, res) => {
-  const { title, description, category, target_date, priority } = req.body;
-  console.log(`📝 POST /api/goals: Creating goal "${title}"`);
-  
-  // Set timeout for database query
-  const timeout = setTimeout(() => {
-    console.error('❌ POST /api/goals: Database query timeout after 5 seconds');
-    res.status(504).json({ error: 'Database query timeout', message: 'The database query took too long to execute' });
-  }, 5000); // 5 second timeout
-
-  const startTime = Date.now();
-  db.run(
-    'INSERT INTO goals (title, description, category, target_date, priority) VALUES (?, ?, ?, ?, ?)',
-    [title, description, category, target_date, priority],
-    function(err) {
+    const startTime = Date.now();
+    db.all('SELECT * FROM goals ORDER BY priority DESC, created_at DESC', (err, rows) => {
       const queryTime = Date.now() - startTime;
       clearTimeout(timeout);
       
+      db.close((closeErr) => {
+        if (closeErr) {
+          console.error(`❌ GET /api/goals: Error closing database: ${closeErr.message}`);
+        }
+      });
+      
       if (err) {
-        console.error(`❌ POST /api/goals: Database error (${queryTime}ms):`, err.message);
+        console.error(`❌ GET /api/goals: Database error (${queryTime}ms):`, err.message);
         res.status(500).json({ error: err.message, queryTime: `${queryTime}ms` });
         return;
       }
       
-      console.log(`✅ POST /api/goals: Successfully created goal with ID ${this.lastID} (${queryTime}ms)`);
-      res.json({ id: this.lastID, message: 'Goal created successfully' });
-    }
-  );
+      console.log(`✅ GET /api/goals: Successfully retrieved ${rows?.length || 0} goals (${queryTime}ms)`);
+      res.json(rows || []);
+    });
+  } catch (err) {
+    console.error(`❌ GET /api/goals: Failed to get database connection:`, err.message);
+    res.status(500).json({ error: 'Database connection failed', message: err.message });
+  }
+});
+
+app.post('/api/goals', async (req, res) => {
+  const { title, description, category, target_date, priority } = req.body;
+  console.log(`📝 POST /api/goals: Creating goal "${title}"`);
+  
+  try {
+    const db = await getDatabaseConnection();
+    
+    // Set timeout for database query
+    const timeout = setTimeout(() => {
+      console.error('❌ POST /api/goals: Database query timeout after 5 seconds');
+      db.close();
+      res.status(504).json({ error: 'Database query timeout', message: 'The database query took too long to execute' });
+    }, 5000);
+
+    const startTime = Date.now();
+    db.run(
+      'INSERT INTO goals (title, description, category, target_date, priority) VALUES (?, ?, ?, ?, ?)',
+      [title, description, category, target_date, priority],
+      function(err) {
+        const queryTime = Date.now() - startTime;
+        clearTimeout(timeout);
+        
+        db.close((closeErr) => {
+          if (closeErr) {
+            console.error(`❌ POST /api/goals: Error closing database: ${closeErr.message}`);
+          }
+        });
+        
+        if (err) {
+          console.error(`❌ POST /api/goals: Database error (${queryTime}ms):`, err.message);
+          res.status(500).json({ error: err.message, queryTime: `${queryTime}ms` });
+          return;
+        }
+        
+        console.log(`✅ POST /api/goals: Successfully created goal with ID ${this.lastID} (${queryTime}ms)`);
+        res.json({ id: this.lastID, message: 'Goal created successfully' });
+      }
+    );
+  } catch (err) {
+    console.error(`❌ POST /api/goals: Failed to get database connection:`, err.message);
+    res.status(500).json({ error: 'Database connection failed', message: err.message });
+  }
 });
 
 // Tasks endpoints
@@ -274,35 +395,78 @@ app.get('/api/progress/summary', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  // Test database connection
-  db.get('SELECT 1 as test', (err, row) => {
-    if (err) {
+app.get('/api/health', async (req, res) => {
+  console.log('🏥 Health check requested');
+  
+  try {
+    const db = await getDatabaseConnection();
+    
+    // Set timeout for health check
+    const timeout = setTimeout(() => {
+      console.error('❌ Health check: Database query timeout after 3 seconds');
+      db.close();
       res.json({
         status: 'degraded',
         timestamp: new Date().toISOString(),
         version: '1.0.0',
-        database: 'error',
-        error: err.message
+        database: 'timeout',
+        message: 'Database query timed out'
       });
-      return;
-    }
+    }, 3000); // 3 second timeout for health check
+
+    // Test database connection with simple query
+    const startTime = Date.now();
+    db.get('SELECT 1 as test', (err, row) => {
+      const queryTime = Date.now() - startTime;
+      clearTimeout(timeout);
+      
+      db.close((closeErr) => {
+        if (closeErr) {
+          console.error(`❌ Health check: Error closing database: ${closeErr.message}`);
+        }
+      });
+      
+      if (err) {
+        console.error(`❌ Health check: Database error (${queryTime}ms):`, err.message);
+        res.json({
+          status: 'degraded',
+          timestamp: new Date().toISOString(),
+          version: '1.0.0',
+          database: 'error',
+          error: err.message,
+          queryTime: `${queryTime}ms`
+        });
+        return;
+      }
+      
+      console.log(`✅ Health check: Database connected (${queryTime}ms)`);
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        database: 'connected',
+        test: row.test,
+        queryTime: `${queryTime}ms`
+      });
+    });
+  } catch (err) {
+    console.error(`❌ Health check: Failed to get database connection:`, err.message);
     res.json({
-      status: 'healthy',
+      status: 'degraded',
       timestamp: new Date().toISOString(),
       version: '1.0.0',
-      database: 'connected',
-      test: row.test
+      database: 'connection_failed',
+      error: err.message
     });
-  });
+  }
 });
 
-// Simple test endpoint
+// Simple test endpoint (no database required)
 app.get('/api/test', (req, res) => {
   res.json({
     message: 'Nexus 2.0 API is working',
     timestamp: new Date().toISOString(),
-    endpoints: ['/api/health', '/api/goals', '/api/tasks', '/api/focus/next-task']
+    endpoints: ['/api/health', '/api/goals', '/api/tasks', '/api/focus/next-task', '/api/progress/summary']
   });
 });
 
