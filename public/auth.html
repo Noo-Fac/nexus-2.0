@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus 2.0 - Authentication</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .logo p {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .auth-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .auth-option {
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .auth-option:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .admin-option {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .admin-option:hover {
+            border: none;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .auth-option h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-option h3 {
+            color: white;
+        }
+
+        .auth-option p {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .icon {
+            font-size: 1.5rem;
+        }
+
+        .input-group {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .input-group.show {
+            display: block;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-top: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .btn-submit:hover {
+            background: #f8fafc;
+            transform: scale(1.02);
+        }
+
+        .error {
+            color: #ef4444;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+            text-align: center;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">
+            <h1>🚀 Nexus 2.0</h1>
+            <p>Goal Acceleration Platform</p>
+        </div>
+
+        <div class="auth-options">
+            <!-- Admin Login -->
+            <div class="auth-option admin-option" onclick="showAdminInput()">
+                <h3><span class="icon">🔐</span> Admin Login</h3>
+                <p>Enter authentication code to access full control</p>
+                <div class="input-group" id="adminInput">
+                    <input 
+                        type="password" 
+                        id="authCode" 
+                        placeholder="Enter authentication code"
+                        onkeypress="handleKeyPress(event)"
+                    >
+                    <button class="btn-submit" onclick="verifyAdmin()">
+                        Continue as Admin
+                    </button>
+                    <div class="error" id="adminError"></div>
+                </div>
+            </div>
+
+            <!-- Visitor Access -->
+            <div class="auth-option" onclick="continueAsVisitor()">
+                <h3><span class="icon">👁️</span> Continue as Visitor</h3>
+                <p>View and explore Nexus in read-only mode</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showAdminInput() {
+            const inputGroup = document.getElementById('adminInput');
+            inputGroup.classList.add('show');
+            document.getElementById('authCode').focus();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                verifyAdmin();
+            }
+        }
+
+        async function verifyAdmin() {
+            const authCode = document.getElementById('authCode').value;
+            const errorDiv = document.getElementById('adminError');
+            const container = document.querySelector('.auth-container');
+
+            if (!authCode.trim()) {
+                showError('Please enter an authentication code');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: authCode })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Store admin session
+                    localStorage.setItem('nexus_auth', JSON.stringify({
+                        role: 'admin',
+                        timestamp: Date.now()
+                    }));
+                    
+                    // Redirect to main app
+                    window.location.href = '/';
+                } else {
+                    showError('Invalid authentication code');
+                    container.classList.add('shake');
+                    setTimeout(() => container.classList.remove('shake'), 500);
+                }
+            } catch (error) {
+                showError('Connection error. Please try again.');
+                console.error('Auth error:', error);
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('adminError');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            setTimeout(() => errorDiv.classList.remove('show'), 3000);
+        }
+
+        function continueAsVisitor() {
+            // Store visitor session
+            localStorage.setItem('nexus_auth', JSON.stringify({
+                role: 'visitor',
+                timestamp: Date.now()
+            }));
+            
+            // Redirect to main app
+            window.location.href = '/';
+        }
+
+        // Check if already authenticated
+        window.onload = function() {
+            const auth = localStorage.getItem('nexus_auth');
+            if (auth) {
+                window.location.href = '/';
+            }
+        };
+    </script>
+</body>
+</html>

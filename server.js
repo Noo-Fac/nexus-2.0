@@ -2,6 +2,7 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
 
@@ -11,7 +12,108 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Authentication configuration
+const ADMIN_CODE = process.env.ADMIN_CODE || 'nexus2024'; // Set this in environment variables
+
+// Authentication middleware
+function checkAuth(req, res, next) {
+  // Auth endpoint and health check are public
+  if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/health') || req.path.startsWith('/api/test')) {
+    return next();
+  }
+  
+  // Check for auth cookie or header
+  const authHeader = req.headers.authorization;
+  const authCookie = req.cookies?.nexus_auth;
+  
+  if (!authHeader && !authCookie) {
+    return res.status(401).json({ 
+      error: 'Authentication required',
+      message: 'Please authenticate first'
+    });
+  }
+  
+  try {
+    const authData = authHeader ? JSON.parse(authHeader) : JSON.parse(authCookie);
+    req.user = authData;
+    next();
+  } catch (err) {
+    return res.status(401).json({ 
+      error: 'Invalid authentication',
+      message: 'Please authenticate again'
+    });
+  }
+}
+
+// Role-based access control middleware
+function requireAdmin(req, res, next) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ 
+      error: 'Admin access required',
+      message: 'This action requires administrator privileges'
+    });
+  }
+  next();
+}
+
+// Apply auth check to all API routes
+app.use('/api', checkAuth);
+
+// Authentication endpoints
+app.post('/api/auth/verify', (req, res) => {
+  const { code } = req.body;
+  
+  if (code === ADMIN_CODE) {
+    res.json({ 
+      success: true, 
+      role: 'admin',
+      message: 'Authentication successful'
+    });
+  } else {
+    res.status(401).json({ 
+      success: false,
+      error: 'Invalid code',
+      message: 'The authentication code is incorrect'
+    });
+  }
+});
+
+app.get('/api/auth/status', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const authCookie = req.cookies?.nexus_auth;
+  
+  if (!authHeader && !authCookie) {
+    return res.json({ 
+      authenticated: false,
+      role: null
+    });
+  }
+  
+  try {
+    const authData = authHeader ? JSON.parse(authHeader) : JSON.parse(authCookie);
+    res.json({
+      authenticated: true,
+      role: authData.role,
+      timestamp: authData.timestamp
+    });
+  } catch (err) {
+    res.json({ 
+      authenticated: false,
+      role: null
+    });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('nexus_auth');
+  res.json({ 
+    success: true,
+    message: 'Logged out successfully'
+  });
+});
 
 // Database setup - use a writable location with persistence
 // Try multiple locations in order of preference:
@@ -301,7 +403,7 @@ app.get('/api/goals', async (req, res) => {
   }
 });
 
-app.post('/api/goals', async (req, res) => {
+app.post('/api/goals', requireAdmin, async (req, res) => {
   const { title, description, category, target_date, priority } = req.body;
   console.log(`📝 POST /api/goals: Creating goal "${title}"`);
   
@@ -658,8 +760,17 @@ app.delete('/api/mock/goals/:id', (req, res) => {
   }, 300);
 });
 
-// Serve the main app
-app.get('*', (req, res) => {
+// Serve authentication page or main app
+app.get('/', (req, res) => {
+  const authHeader = req.headers.authorization;
+  const authCookie = req.cookies?.nexus_auth;
+  
+  // If not authenticated, serve auth page
+  if (!authHeader && !authCookie) {
+    return res.sendFile(path.join(__dirname, 'public', 'auth.html'));
+  }
+  
+  // If authenticated, serve main app
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
