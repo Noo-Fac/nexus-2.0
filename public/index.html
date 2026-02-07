@@ -24,11 +24,15 @@
                     <i class="fas fa-moon"></i>
                     <span class="theme-text">Dark</span>
                 </button>
+                <button class="btn-logout" id="logoutBtn" data-admin-only style="display: none;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
                 <div class="status-indicator">
                     <div class="status-dot active"></div>
                     <span>Goal-First Mode</span>
                 </div>
-                <button class="btn-focus" id="focusBtn">
+                <button class="btn-focus" id="focusBtn" data-admin-only>
                     <i class="fas fa-crosshairs"></i>
                     Focus Engine
                 </button>
@@ -41,7 +45,7 @@
             <div class="left-panel">
                 <div class="panel-header">
                     <h2><i class="fas fa-bullseye"></i> Your Goals</h2>
-                    <button class="btn-add" id="addGoalBtn">
+                    <button class="btn-add" id="addGoalBtn" data-admin-only>
                         <i class="fas fa-plus"></i> Add Goal
                     </button>
                 </div>
@@ -116,7 +120,7 @@
                 <div class="quick-actions">
                     <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
                     <div class="action-buttons">
-                        <button class="action-btn" id="generateTasksBtn">
+                        <button class="action-btn" id="generateTasksBtn" data-admin-only>
                             <i class="fas fa-magic"></i>
                             Generate Tasks
                         </button>
@@ -124,7 +128,7 @@
                             <i class="fas fa-chart-bar"></i>
                             Review Progress
                         </button>
-                        <button class="action-btn" id="automateBtn">
+                        <button class="action-btn" id="automateBtn" data-admin-only>
                             <i class="fas fa-robot"></i>
                             Automate Routine
                         </button>
@@ -196,6 +200,7 @@
         </div>
     </div>
 
+    <script src="auth.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

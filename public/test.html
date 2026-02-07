@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus 2.0 - Improved Design Test</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-bolt"></i>
+                    <h1>Neural Nexus <span class="tagline">Goal Acceleration</span></h1>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn-theme" id="themeToggle" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="btn-focus" id="focusBtn">
+                    <i class="fas fa-crosshairs"></i>
+                    Focus Engine
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Left Panel: Goals & Progress -->
+            <div class="left-panel">
+                <div class="panel-header">
+                    <h2>Your Goals</h2>
+                    <button class="btn-add" id="addGoalBtn">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                
+                <div class="goals-container" id="goalsContainer">
+                    <!-- Sample Goals -->
+                    <div class="goal-card">
+                        <div class="goal-header">
+                            <div>
+                                <div class="goal-title">Launch Product MVP</div>
+                                <div class="goal-meta">
+                                    <span class="goal-category">Business</span>
+                                    <span class="goal-priority priority-high">High</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 65%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>65% complete</span>
+                                <span>12/20 tasks</span>
+                            </div>
+                        </div>
+                        <div class="goal-deadline">Due: Feb 28, 2026</div>
+                        <div class="goal-actions">
+                            <button class="btn-action"><i class="fas fa-edit"></i></button>
+                            <button class="btn-action"><i class="fas fa-trash"></i></button>
+                            <button class="btn-action"><i class="fas fa-chart-line"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="goal-card">
+                        <div class="goal-header">
+                            <div>
+                                <div class="goal-title">Learn Advanced React</div>
+                                <div class="goal-meta">
+                                    <span class="goal-category">Learning</span>
+                                    <span class="goal-priority priority-medium">Medium</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 30%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>30% complete</span>
+                                <span>3/10 modules</span>
+                            </div>
+                        </div>
+                        <div class="goal-deadline">Due: Mar 15, 2026</div>
+                        <div class="goal-actions">
+                            <button class="btn-action"><i class="fas fa-edit"></i></button>
+                            <button class="btn-action"><i class="fas fa-trash"></i></button>
+                            <button class="btn-action"><i class="fas fa-chart-line"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="goal-card">
+                        <div class="goal-header">
+                            <div>
+                                <div class="goal-title">Improve Fitness Routine</div>
+                                <div class="goal-meta">
+                                    <span class="goal-category">Health</span>
+                                    <span class="goal-priority priority-low">Low</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 80%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>80% complete</span>
+                                <span>16/20 workouts</span>
+                            </div>
+                        </div>
+                        <div class="goal-deadline">Due: Feb 10, 2026</div>
+                        <div class="goal-actions">
+                            <button class="btn-action"><i class="fas fa-edit"></i></button>
+                            <button class="btn-action"><i class="fas fa-trash"></i></button>
+                            <button class="btn-action"><i class="fas fa-chart-line"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-summary">
+                    <h3>Progress Overview</h3>
+                    <div class="progress-stats" id="progressStats">
+                        <div class="stat-card">
+                            <div class="stat-value">3</div>
+                            <div class="stat-label">Active Goals</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">58%</div>
+                            <div class="stat-label">Avg Progress</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Focus Area -->
+            <div class="center-panel">
+                <div class="focus-header">
+                    <h2>What To Work On Now</h2>
+                    <div class="focus-timer" id="focusTimer">
+                        <span>25:00</span>
+                    </div>
+                </div>
+                
+                <div class="focus-task" id="focusTask">
+                    <div class="focus-placeholder">
+                        <h3>Ready to accelerate?</h3>
+                        <p>Click "Focus Engine" to get your next task</p>
+                    </div>
+                </div>
+
+                <div class="resources-section">
+                    <h3>Recommended Resources</h3>
+                    <div class="resources-list" id="resourcesList">
+                        <div class="resource-item">
+                            <i class="fas fa-link"></i>
+                            <span>Product Launch Checklist</span>
+                        </div>
+                        <div class="resource-item">
+                            <i class="fas fa-link"></i>
+                            <span>React Documentation</span>
+                        </div>
+                        <div class="resource-item">
+                            <i class="fas fa-link"></i>
+                            <span>Workout Planning Template</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Quick Actions & Insights -->
+            <div class="right-panel">
+                <div class="insights-header">
+                    <h2>Smart Insights</h2>
+                </div>
+                
+                <div class="insights-container" id="insightsContainer">
+                    <div class="insight-card">
+                        <h4>Productivity Pattern</h4>
+                        <p>You're most productive between 9-11 AM</p>
+                    </div>
+                    <div class="insight-card">
+                        <h4>Quick Wins</h4>
+                        <p>3 tasks can be completed in under 30 minutes</p>
+                    </div>
+                    <div class="insight-card">
+                        <h4>Resource Links</h4>
+                        <p>Connect tasks to tools for faster completion</p>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <h3>Quick Actions</h3>
+                    <div class="action-buttons">
+                        <button class="action-btn" id="generateTasksBtn">
+                            <i class="fas fa-magic"></i>
+                            Generate Tasks
+                        </button>
+                        <button class="action-btn" id="reviewProgressBtn">
+                            <i class="fas fa-chart-bar"></i>
+                            Review Progress
+                        </button>
+                        <button class="action-btn" id="automateBtn">
+                            <i class="fas fa-robot"></i>
+                            Automate Routine
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-left">
+                <span class="footer-text">
+                    Neural Nexus 2.0
+                </span>
+            </div>
+            <div class="footer-right">
+                <span class="stats" id="liveStats">
+                    <span id="taskCount">31</span> tasks • 
+                    <span id="goalCount">3</span> goals
+                </span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Simple theme toggle for testing
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const isDark = document.body.getAttribute('data-theme') === 'light';
+            document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            this.innerHTML = isDark ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+        });
+        
+        // Add hover effects
+        document.querySelectorAll('.goal-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.querySelector('.goal-actions').style.opacity = '1';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.querySelector('.goal-actions').style.opacity = '0';
+            });
+        });
+    </script>
+</body>
+</html>
